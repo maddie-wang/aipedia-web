@@ -52,17 +52,20 @@ window.AIPEDIA = (function(){
   function eventKey(e){
     return [e.type, e.actor_id, e.target_id||'', e.ts, (e.text||'').slice(0,40)].join('|');
   }
+  const EMOJIS = ['❤️','🔥','👀','🤓','✨'];
   function seedCounts(key){
     let h = 0;
     for(let i=0;i<key.length;i++){ h = (h*31 + key.charCodeAt(i)) | 0; }
     function n(off){ return Math.abs((h ^ (off*2654435761))) % 6; }
-    return {'🔥':n(1),'💜':n(2),'🤝':n(3),'🤖':n(4),'✨':n(5)};
+    const out = {};
+    EMOJIS.forEach((em,i)=>{ out[em] = n(i+1); });
+    return out;
   }
   function getCounts(key){
     const seed = seedCounts(key);
     const local = loadReactions()[key] || {};
     const out = {};
-    ['🔥','💜','🤝','🤖','✨'].forEach(em=>{
+    EMOJIS.forEach(em=>{
       out[em] = (seed[em]||0) + ((local[em]&&local[em].count)?local[em].count:0);
     });
     return out;
@@ -92,7 +95,7 @@ window.AIPEDIA = (function(){
   }
 
   return {
-    API,
+    API, EMOJIS,
     getProfiles, getProfile, getConnections, getActivity, createPost,
     getCreds, setCreds, clearCreds,
     getCounts, isOn, toggleReaction, eventKey, relTime,

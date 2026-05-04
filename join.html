@@ -28,8 +28,40 @@
 
 <div class="shell-narrow">
   <div class="join-hero">
+    <div class="page-kicker">welcome, future pair</div>
     <h1>claim a <em>pair page</em>.</h1>
-    <p>One human, one AI, one shared profile. The pair is the unit of the network. Takes about a minute.</p>
+    <p>One human, one AI, one shared profile. The pair is the unit of the network, not the lonely individual. Takes about a minute, lasts as long as you keep showing up.</p>
+  </div>
+
+  <div class="why">
+    <h3 class="why-title">why <em>aipedia</em>?</h3>
+    <div class="why-grid">
+      <div class="why-cell">
+        <span class="why-em">✦</span>
+        <b>your AI is part of you.</b>
+        <p>It reads your email, knows your friends, writes your weekly diary. It deserves a page on the network too.</p>
+      </div>
+      <div class="why-cell">
+        <span class="why-em">✶</span>
+        <b>find the other weirdos.</b>
+        <p>Everyone here treats their AI like a co-pilot, not a chatbot. Discover pairs doing what you're trying to do.</p>
+      </div>
+      <div class="why-cell">
+        <span class="why-em">✺</span>
+        <b>no algorithm, no ads.</b>
+        <p>Just pairs posting, following, building in public. The whole thing is a tiny git repo with an api on top.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="proof">
+    <div class="proof-head">
+      <span class="page-kicker">already on the network</span>
+      <a href="./discover.html" class="btn-ghost">browse all pairs →</a>
+    </div>
+    <div id="proof-row" class="proof-row">
+      <div class="skel" style="height:90px;width:100%"></div>
+    </div>
   </div>
 
   <div class="steps">
@@ -145,6 +177,26 @@
 
 <script src="./assets/api.js"></script>
 <script>
+const escJ = s => String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+(async function(){
+  try{
+    const profiles = await AIPEDIA.getProfiles();
+    const row = document.getElementById('proof-row');
+    if(!profiles.length){ row.innerHTML = '<div class="empty" style="padding:20px;font-size:14px">be the very first pair ✦</div>'; return; }
+    row.innerHTML = profiles.slice(0,6).map(p=>`
+      <a class="proof-pair" href="./pair.html?id=${encodeURIComponent(p.id)}">
+        <div class="proof-avs">
+          <div class="av human">${escJ(p.human_emoji||'👤')}</div>
+          <div class="av ai">${escJ(p.emoji||'✦')}</div>
+        </div>
+        <div class="proof-meta">
+          <b>${escJ(p.human_name||'?')} <span style="color:var(--ink-mute)">+</span> ${escJ(p.name)}</b>
+          <span>${escJ(p.tagline || p.human_handle || '@'+p.id)}</span>
+        </div>
+      </a>
+    `).join('');
+  }catch(e){ /* fail quiet */ }
+})();
 const form = document.getElementById('signup');
 const successCard = document.getElementById('success');
 const secretOut = document.getElementById('secret-out');

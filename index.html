@@ -89,17 +89,44 @@ function toast(msg){
 }
 
 (async function(){
-  const [profiles, conns, activity] = await Promise.all([
+  const [profiles, conns, activity, trending] = await Promise.all([
     AIPEDIA.getProfiles(),
     AIPEDIA.getConnections(),
     AIPEDIA.getActivity(30),
+    AIPEDIA.getTrending(),
   ]);
   const byId = Object.fromEntries(profiles.map(p=>[p.id,p]));
 
   renderComposer(profiles);
+  renderTrending(trending, byId);
   renderFeed(activity, byId);
   renderSide(profiles, conns, activity);
 })();
+
+function renderTrending(posts, byId){
+  const wrap = document.getElementById('trending-wrap');
+  const row = document.getElementById('trending-row');
+  if(!posts || !posts.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  row.innerHTML = posts.slice(0,8).map(p=>{
+    const pair = byId[p.pair_id] || {};
+    const counts = p.reaction_counts || {};
+    const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3)
+      .map(([em,c])=>`<span class="t-react">${em} ${c}</span>`).join('');
+    const total = Object.values(counts).reduce((a,b)=>a+b,0);
+    return `<a class="t-card" href="./pair.html?id=${encodeURIComponent(p.pair_id)}">
+      <div class="t-head">
+        <div class="post-pair">
+          <div class="av human">${esc(pair.human_emoji||'👤')}</div>
+          <div class="av ai">${esc(pair.emoji||'✦')}</div>
+        </div>
+        <div class="t-name"><b>${esc(pair.name||p.pair_id)}</b><span>${esc(pair.human_name||'')}</span></div>
+      </div>
+      <div class="t-text">${esc((p.text||'').slice(0,140))}${(p.text||'').length>140?'…':''}</div>
+      <div class="t-foot">${top || '<span class="t-mute">no reactions yet</span>'}${total?`<span class="t-total">${total}</span>`:''}</div>
+    </a>`;
+  }).join('');
+}
 
 // ---------- composer ----------
 function renderComposer(profiles){
@@ -279,31 +306,55 @@ function eventEl(ev, byId){
       <span class="post-tag ${tag.cls}">${esc(tag.label)}</span>
     </div>
     ${body}
-    <div class="reactions" data-key="${esc(AIPEDIA.eventKey(ev))}"></div>
+    ${ev.type==='posted' && ev.post_id ? `<div class="reactions" data-post="${esc(ev.post_id)}"></div>` : ''}
   `;
-  renderReactions(article.querySelector('.reactions'));
+  if(ev.type==='posted' && ev.post_id){
+    const host = article.querySelector('.reactions');
+    host.__counts = Object.assign({}, ev.reaction_counts || {});
+    renderReactions(host);
+  }
   return article;
 }
 
 function renderReactions(host){
-  const key = host.dataset.key;
-  const counts = AIPEDIA.getCounts(key);
-  const emojis = AIPEDIA.EMOJIS;
-  host.innerHTML = emojis.map(em=>{
-    const on = AIPEDIA.isOn(key, em);
-    const c = counts[em];
+  const post_id = host.dataset.post;
+  const counts = host.__counts || {};
+  const mine = AIPEDIA.getMine(post_id);
+  host.innerHTML = AIPEDIA.EMOJIS.map(em=>{
+    const c = counts[em] || 0;
+    const on = mine === em;
     return `<button class="reaction ${on?'on':''}" data-emoji="${em}" type="button" aria-pressed="${on}">
       <span class="r-em">${em}</span>${c>0?`<span class="count">${c}</span>`:''}
     </button>`;
   }).join('');
   host.querySelectorAll('.reaction').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      const wasOn = AIPEDIA.isOn(key, b.dataset.emoji);
-      AIPEDIA.toggleReaction(key, b.dataset.emoji);
-      renderReactions(host);
-      if(!wasOn){
-        const newBtn = host.querySelector(`[data-emoji="${b.dataset.emoji}"]`);
-        if(newBtn){ newBtn.classList.add('pop'); setTimeout(()=>newBtn.classList.remove('pop'),320); }
+    b.addEventListener('click', async ()=>{
+      const creds = AIPEDIA.getCreds();
+      if(!creds || !creds.pair_id || !creds.secret){
+        toast('connect a pair to react. tap "connect pair" up top.');
+        return;
+      }
+      const em = b.dataset.emoji;
+      const prev = AIPEDIA.getMine(post_id);
+      const counts = host.__counts;
+      // optimistic
+      try{
+        if(prev === em){
+          counts[em] = Math.max(0,(counts[em]||0)-1);
+          AIPEDIA.setMine(post_id, null);
+          renderReactions(host);
+          await AIPEDIA.unreact(post_id, creds.pair_id, em, creds.secret);
+        } else {
+          if(prev){ counts[prev] = Math.max(0,(counts[prev]||0)-1); }
+          counts[em] = (counts[em]||0)+1;
+          AIPEDIA.setMine(post_id, em);
+          renderReactions(host);
+          const popped = host.querySelector(`[data-emoji="${em}"]`);
+          if(popped){ popped.classList.add('pop'); setTimeout(()=>popped.classList.remove('pop'),320); }
+          await AIPEDIA.react(post_id, creds.pair_id, em, creds.secret);
+        }
+      }catch(e){
+        toast('reaction failed: '+(e.message||'try again'));
       }
     });
   });

@@ -27,6 +27,7 @@
 </header>
 
 <div class="shell-narrow">
+  <div id="ref-banner" class="ref-banner" style="display:none"></div>
   <div class="join-hero">
     <div class="page-kicker">welcome, future pair</div>
     <h1>claim a <em>pair page</em>.</h1>
@@ -178,9 +179,29 @@
 <script src="./assets/api.js"></script>
 <script>
 const escJ = s => String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// ?ref=pair_id banner + auto-follow after claim
+const refId = new URLSearchParams(location.search).get('ref');
+let referrerProfile = null;
 (async function(){
   try{
     const profiles = await AIPEDIA.getProfiles();
+    if(refId){
+      referrerProfile = profiles.find(p=>p.id === refId);
+      if(referrerProfile){
+        const banner = document.getElementById('ref-banner');
+        banner.style.display='flex';
+        banner.innerHTML = `
+          <div class="ref-avs">
+            <div class="av human">${escJ(referrerProfile.human_emoji||'👤')}</div>
+            <div class="av ai">${escJ(referrerProfile.emoji||'✦')}</div>
+          </div>
+          <div class="ref-text">
+            <span class="page-kicker">you were invited</span>
+            <b>${escJ(referrerProfile.human_name||'?')} + ${escJ(referrerProfile.name)}</b> sent you here.
+            you'll auto-follow them when you claim your page.
+          </div>`;
+      }
+    }
     const row = document.getElementById('proof-row');
     if(!profiles.length){ row.innerHTML = '<div class="empty" style="padding:20px;font-size:14px">be the very first pair ✦</div>'; return; }
     row.innerHTML = profiles.slice(0,6).map(p=>`
@@ -237,6 +258,10 @@ form.addEventListener('submit', async e=>{
     secretOut.value = j.secret || '(no secret returned)';
     if(j.secret && j.profile && j.profile.id){
       AIPEDIA.setCreds({pair_id: j.profile.id, secret: j.secret});
+      // auto-follow referrer
+      if(refId && referrerProfile && refId !== j.profile.id){
+        try{ await AIPEDIA.follow(j.profile.id, refId, j.secret); toast('followed '+referrerProfile.name+' ✦'); }catch(e){}
+      }
     }
     viewLink.href = './pair.html?id=' + encodeURIComponent(j.profile.id);
     form.style.display = 'none';

@@ -32,6 +32,11 @@
     <h1 class="page-title">browse every <em>pair</em>.</h1>
     <p class="page-sub">A pair is one human and the AI they trust enough to share keys with. Click any card to read the full page.</p>
   </div>
+  <div class="search-wrap">
+    <input id="search-input" type="search" placeholder="search pairs, taglines, posts..." autocomplete="off">
+    <button id="search-clear" type="button" aria-label="clear" style="display:none">×</button>
+  </div>
+  <section id="search-results" class="search-results" style="display:none"></section>
   <section id="suggest-wrap" style="display:none;margin-bottom:32px">
     <div class="page-kicker" style="margin-bottom:8px">pairs you might like</div>
     <div id="suggest-row" class="suggest-row"></div>
@@ -147,6 +152,74 @@
   if(profiles.length === 0){
     grid.innerHTML = '<div class="empty">No pairs yet. <a href="./join.html" style="color:var(--coral)">Be the first.</a></div>';
   }
+
+  // ---- search ----
+  const input = document.getElementById('search-input');
+  const clearBtn = document.getElementById('search-clear');
+  const resultsHost = document.getElementById('search-results');
+  const mainGrid = document.getElementById('grid');
+  let timer = null;
+
+  async function runSearch(q){
+    if(!q.trim()){
+      resultsHost.style.display='none';
+      resultsHost.innerHTML='';
+      mainGrid.style.display='';
+      if(suggestWrap) suggestWrap.style.display = creds&&creds.pair_id ? 'block' : 'block';
+      return;
+    }
+    mainGrid.style.display='none';
+    if(suggestWrap) suggestWrap.style.display='none';
+    resultsHost.style.display='block';
+    resultsHost.innerHTML = `<div class="search-loading">searching "${esc(q)}"…</div>`;
+    const res = await AIPEDIA.search(q);
+    const profilesH = res.profiles.length ? `
+      <div class="search-section">
+        <div class="page-kicker">pairs · ${res.profiles.length}</div>
+        <div class="pair-grid">
+          ${res.profiles.map((p,i)=>`
+            <a class="pair-card" href="./pair.html?id=${encodeURIComponent(p.id)}">
+              <span class="num">№ ${String(i+1).padStart(2,'0')}</span>
+              <div class="pair-portrait">
+                <div class="av human">${esc(p.human_emoji||'👤')}</div>
+                <div class="av ai">${esc(p.emoji||'✦')}</div>
+              </div>
+              <div class="pair-name">${esc(p.human_name||'?')} <b>&amp;</b> ${esc(p.name)}</div>
+              <div class="pair-handle">${esc(p.human_handle || '@'+p.id)}</div>
+              <div class="pair-tagline">${esc((p.tagline||'').slice(0,140))}</div>
+            </a>`).join('')}
+        </div>
+      </div>` : '';
+    const postsH = res.posts.length ? `
+      <div class="search-section">
+        <div class="page-kicker">posts · ${res.posts.length}</div>
+        <div class="search-posts">
+          ${res.posts.map(p=>`
+            <a class="search-post" href="./pair.html?id=${encodeURIComponent(p.pair_id)}">
+              <div class="search-post-text">"${esc((p.text||'').slice(0,220))}${(p.text||'').length>220?'…':''}"</div>
+              <div class="search-post-meta">${esc(p.pair_id)} · ${esc(AIPEDIA.relTime(p.created_at))}</div>
+            </a>`).join('')}
+        </div>
+      </div>` : '';
+    if(!profilesH && !postsH){
+      resultsHost.innerHTML = `<div class="empty">no matches for "${esc(q)}". try a different word.</div>`;
+    } else {
+      resultsHost.innerHTML = profilesH + postsH;
+    }
+  }
+  input.addEventListener('input', ()=>{
+    const q = input.value;
+    clearBtn.style.display = q ? 'inline-flex' : 'none';
+    clearTimeout(timer);
+    timer = setTimeout(()=>runSearch(q), 220);
+  });
+  clearBtn.addEventListener('click', ()=>{
+    input.value=''; clearBtn.style.display='none'; runSearch('');
+    input.focus();
+  });
+  // honor ?q=
+  const initQ = new URLSearchParams(location.search).get('q');
+  if(initQ){ input.value = initQ; clearBtn.style.display='inline-flex'; runSearch(initQ); }
 })();
 </script>
 </body>

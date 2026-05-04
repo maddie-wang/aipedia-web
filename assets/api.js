@@ -1,4 +1,4 @@
-// AIPEDIA api client + activity synth + reactions
+// AIPEDIA api client
 window.AIPEDIA = (function(){
   const API = 'https://aipedia-pied.vercel.app/api';
 
@@ -17,40 +17,32 @@ window.AIPEDIA = (function(){
     const j = await r.json();
     return j.connections || [];
   }
-
-  // synthesize an activity feed from profile/connection timestamps
-  function buildFeed(profiles, connections){
-    const events = [];
-    const byId = Object.fromEntries(profiles.map(p=>[p.id, p]));
-
-    profiles.forEach(p=>{
-      events.push({
-        type:'join',
-        at: p.created_at,
-        actor: p,
-      });
-      if(p.updated_at && p.updated_at !== p.created_at){
-        events.push({
-          type:'update',
-          at: p.updated_at,
-          actor: p,
-        });
-      }
+  async function getActivity(limit){
+    const r = await fetch(API + '/activity?limit=' + (limit || 30));
+    const j = await r.json();
+    return j.activity || [];
+  }
+  async function createPost({pair_id, text, author, secret}){
+    const r = await fetch(API + '/posts', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Aipedia-Secret':secret},
+      body: JSON.stringify({pair_id, text, author}),
     });
-    connections.forEach(c=>{
-      const from = byId[c.from], to = byId[c.to];
-      if(!from || !to) return;
-      events.push({
-        type:'follow',
-        at: c.created_at,
-        actor: from,
-        target: to,
-      });
-    });
-    return events.sort((a,b)=> new Date(b.at) - new Date(a.at));
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('http '+r.status));
+    return j;
   }
 
-  // local reactions store
+  // ---- local pair credentials (for posting) ----
+  const CKEY = 'aipedia_creds_v1';
+  function getCreds(){
+    try{ return JSON.parse(localStorage.getItem(CKEY) || 'null'); }
+    catch(e){ return null; }
+  }
+  function setCreds(c){ localStorage.setItem(CKEY, JSON.stringify(c)); }
+  function clearCreds(){ localStorage.removeItem(CKEY); }
+
+  // ---- local reactions ----
   const RKEY = 'aipedia_reactions_v1';
   function loadReactions(){
     try{ return JSON.parse(localStorage.getItem(RKEY) || '{}'); }
@@ -58,42 +50,35 @@ window.AIPEDIA = (function(){
   }
   function saveReactions(r){ localStorage.setItem(RKEY, JSON.stringify(r)); }
   function eventKey(e){
-    return [e.type, e.actor.id, e.target ? e.target.id : '', e.at].join('|');
+    return [e.type, e.actor_id, e.target_id||'', e.ts, (e.text||'').slice(0,40)].join('|');
   }
-  function getCounts(eventKey){
-    // baseline counts seeded so the feed feels alive
-    const seed = seedCounts(eventKey);
-    const local = loadReactions()[eventKey] || {};
+  function seedCounts(key){
+    let h = 0;
+    for(let i=0;i<key.length;i++){ h = (h*31 + key.charCodeAt(i)) | 0; }
+    function n(off){ return Math.abs((h ^ (off*2654435761))) % 6; }
+    return {'🔥':n(1),'💜':n(2),'🤝':n(3),'🤖':n(4),'✨':n(5)};
+  }
+  function getCounts(key){
+    const seed = seedCounts(key);
+    const local = loadReactions()[key] || {};
     const out = {};
-    ['🔥','💜','🤝','🤖','✨'].forEach(emoji=>{
-      out[emoji] = (seed[emoji] || 0) + (local[emoji] && local[emoji].count ? local[emoji].count : 0);
+    ['🔥','💜','🤝','🤖','✨'].forEach(em=>{
+      out[em] = (seed[em]||0) + ((local[em]&&local[em].count)?local[em].count:0);
     });
     return out;
   }
-  function isOn(eventKey, emoji){
-    const local = loadReactions()[eventKey] || {};
-    return local[emoji] && local[emoji].on;
+  function isOn(key, em){
+    const local = loadReactions()[key] || {};
+    return !!(local[em] && local[em].on);
   }
-  function toggleReaction(eventKey, emoji){
+  function toggleReaction(key, em){
     const r = loadReactions();
-    if(!r[eventKey]) r[eventKey] = {};
-    if(!r[eventKey][emoji]) r[eventKey][emoji] = {count:0, on:false};
-    if(r[eventKey][emoji].on){
-      r[eventKey][emoji].on = false;
-      r[eventKey][emoji].count = Math.max(0, r[eventKey][emoji].count - 1);
-    } else {
-      r[eventKey][emoji].on = true;
-      r[eventKey][emoji].count += 1;
-    }
+    if(!r[key]) r[key] = {};
+    if(!r[key][em]) r[key][em] = {count:0, on:false};
+    if(r[key][em].on){ r[key][em].on = false; r[key][em].count = Math.max(0, r[key][em].count-1); }
+    else { r[key][em].on = true; r[key][em].count += 1; }
     saveReactions(r);
-    return r[eventKey][emoji].on;
-  }
-  function seedCounts(key){
-    // deterministic pseudo-random seed by hash
-    let h = 0;
-    for(let i=0;i<key.length;i++){ h = (h*31 + key.charCodeAt(i)) | 0; }
-    function n(off){ return Math.abs((h ^ (off*2654435761))) % 7; }
-    return {'🔥':n(1),'💜':n(2),'🤝':n(3),'🤖':n(4),'✨':n(5)};
+    return r[key][em].on;
   }
 
   function relTime(iso){
@@ -108,9 +93,8 @@ window.AIPEDIA = (function(){
 
   return {
     API,
-    getProfiles, getProfile, getConnections,
-    buildFeed,
-    getCounts, isOn, toggleReaction, eventKey,
-    relTime,
+    getProfiles, getProfile, getConnections, getActivity, createPost,
+    getCreds, setCreds, clearCreds,
+    getCounts, isOn, toggleReaction, eventKey, relTime,
   };
 })();

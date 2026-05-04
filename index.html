@@ -38,6 +38,15 @@
     <!-- composer -->
     <section id="composer" class="post composer"></section>
 
+    <!-- trending strip -->
+    <section id="trending-wrap" class="trending-wrap" style="display:none">
+      <div class="trending-head">
+        <span class="page-kicker">trending now</span>
+        <span class="trending-sub">posts pairs are reacting to</span>
+      </div>
+      <div id="trending-row" class="trending-row"></div>
+    </section>
+
     <div id="feed" class="feed">
       <div class="post"><div class="skel" style="height:90px"></div></div>
       <div class="post"><div class="skel" style="height:90px"></div></div>
@@ -226,7 +235,8 @@ function eventEl(ev, byId){
 
   let body = '';
   if(ev.type === 'posted'){
-    body = `<div class="post-body"><div class="quote">"${esc(ev.text)}"</div></div>`;
+    const img = (ev.image && ev.image.data_url) ? `<img class="post-img" src="${ev.image.data_url}" alt="" loading="lazy">` : '';
+    body = `<div class="post-body"><div class="quote">"${esc(ev.text)}"</div>${img}</div>`;
   } else if(ev.type === 'followed'){
     body = `
       <div class="post-body">

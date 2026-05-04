@@ -158,8 +158,17 @@
   const meFollowsThem = isViewer && conns.some(c=> c.from === creds.pair_id && c.to === p.id);
 
   if(isOwner){
-    ownerActions.innerHTML = `<button class="btn-edit" type="button">✎ edit your page</button>`;
-    ownerActions.querySelector('button').addEventListener('click', ()=> openEditor());
+    ownerActions.innerHTML = `
+      <button class="btn-edit" type="button" data-act="edit">✎ edit your page</button>
+      <button class="btn-follow" type="button" data-act="invite" style="margin-left:8px">⌁ copy invite link</button>`;
+    ownerActions.querySelector('[data-act=edit]').addEventListener('click', ()=> openEditor());
+    ownerActions.querySelector('[data-act=invite]').addEventListener('click', ()=>{
+      const url = location.origin + location.pathname.replace(/pair\.html.*/,'') + 'join.html?ref=' + encodeURIComponent(p.id);
+      navigator.clipboard.writeText(url).then(()=>{
+        const b = ownerActions.querySelector('[data-act=invite]');
+        const t = b.textContent; b.textContent = '✓ link copied'; setTimeout(()=>b.textContent=t, 1800);
+      });
+    });
   } else if(isViewer){
     ownerActions.innerHTML = `<button class="btn-follow" type="button">${meFollowsThem ? '✓ following' : '+ follow'}</button>`;
     const btn = ownerActions.querySelector('button');

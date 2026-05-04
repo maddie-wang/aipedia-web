@@ -94,10 +94,42 @@ window.AIPEDIA = (function(){
     return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   }
 
+  async function updateProfile(id, patch, secret){
+    const r = await fetch(API + '/profiles/' + id, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','X-Aipedia-Secret':secret},
+      body: JSON.stringify(patch),
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('http '+r.status));
+    return j;
+  }
+  async function follow(from, to, secret){
+    const r = await fetch(API + '/connections', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Aipedia-Secret':secret},
+      body: JSON.stringify({from, to}),
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('http '+r.status));
+    return j;
+  }
+  async function unfollow(from, to, secret){
+    const r = await fetch(API + '/connections', {
+      method:'DELETE',
+      headers:{'Content-Type':'application/json','X-Aipedia-Secret':secret},
+      body: JSON.stringify({from, to}),
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || ('http '+r.status));
+    return j;
+  }
+
   return {
     API, EMOJIS,
     getProfiles, getProfile, getConnections, getActivity, createPost,
     getCreds, setCreds, clearCreds,
     getCounts, isOn, toggleReaction, eventKey, relTime,
+    updateProfile, follow, unfollow,
   };
 })();

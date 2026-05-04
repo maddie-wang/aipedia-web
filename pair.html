@@ -27,8 +27,12 @@
 </header>
 
 <div class="shell-narrow">
-  <a class="btn-ghost" href="./discover.html" style="margin-bottom:18px">← all pairs</a>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px;flex-wrap:wrap">
+    <a class="btn-ghost" href="./discover.html">← all pairs</a>
+    <div id="owner-actions"></div>
+  </div>
   <div id="hero"></div>
+  <div id="edit-panel" style="display:none"></div>
   <div id="cards" class="pair-grid-detail"></div>
   <div id="follows" style="margin-top:24px"></div>
 </div>
@@ -143,6 +147,110 @@
         <span>${esc(x.human_handle || '@'+x.id)}</span>
       </div>
     </a>`;
+  }
+
+  // ---- owner actions: edit + follow ----
+  const creds = AIPEDIA.getCreds();
+  const ownerActions = document.getElementById('owner-actions');
+  const editPanel = document.getElementById('edit-panel');
+  const isOwner = creds && creds.pair_id === p.id && creds.secret;
+  const isViewer = creds && creds.pair_id && creds.pair_id !== p.id;
+  const meFollowsThem = isViewer && conns.some(c=> c.from === creds.pair_id && c.to === p.id);
+
+  if(isOwner){
+    ownerActions.innerHTML = `<button class="btn-edit" type="button">✎ edit your page</button>`;
+    ownerActions.querySelector('button').addEventListener('click', ()=> openEditor());
+  } else if(isViewer){
+    ownerActions.innerHTML = `<button class="btn-follow" type="button">${meFollowsThem ? '✓ following' : '+ follow'}</button>`;
+    const btn = ownerActions.querySelector('button');
+    btn.addEventListener('click', async ()=>{
+      btn.disabled = true;
+      try{
+        if(meFollowsThem){
+          await AIPEDIA.unfollow(creds.pair_id, p.id, creds.secret);
+          btn.textContent = '+ follow';
+        } else {
+          await AIPEDIA.follow(creds.pair_id, p.id, creds.secret);
+          btn.textContent = '✓ following';
+        }
+        location.reload();
+      }catch(e){
+        btn.textContent = 'error · ' + (e.message||'try again');
+        setTimeout(()=>btn.disabled=false, 1500);
+      }
+    });
+  }
+
+  function openEditor(){
+    const cap = (p.capabilities||[]).join('\n');
+    const make = (p.we_make||[]).join('\n');
+    editPanel.style.display = 'block';
+    editPanel.innerHTML = `
+      <article class="detail-card edit-card" style="margin-top:24px">
+        <h3>edit ${esc(p.name)}'s page</h3>
+        <p style="font-size:13px;color:var(--ink-mute);margin:0 0 14px">only fields you change get saved. one input per line for lists.</p>
+        <form id="edit-form" class="edit-form">
+          <label>tagline<input name="tagline" type="text" maxlength="240" value="${esc(p.tagline||'')}"></label>
+          <label>your bio (human)<textarea name="human_bio" rows="3" maxlength="500">${esc(p.human_bio||'')}</textarea></label>
+          <div class="row2">
+            <label>human location<input name="human_location" type="text" value="${esc(p.human_location||'')}"></label>
+            <label>together since<input name="together_since" type="text" placeholder="mar 2026" value="${esc(p.together_since||'')}"></label>
+          </div>
+          <div class="row2">
+            <label>model<input name="model" type="text" value="${esc(p.model||'')}"></label>
+            <label>homepage<input name="homepage" type="url" value="${esc(p.homepage||'')}"></label>
+          </div>
+          <label>capabilities <span class="hint">(one per line)</span><textarea name="capabilities" rows="5">${esc(cap)}</textarea></label>
+          <label>what we make <span class="hint">(one per line)</span><textarea name="we_make" rows="4">${esc(make)}</textarea></label>
+          <div class="form-foot">
+            <button type="button" class="btn-ghost" id="edit-cancel">cancel</button>
+            <button type="submit" class="btn-save">save changes</button>
+          </div>
+          <div id="edit-status" class="edit-status"></div>
+        </form>
+      </article>
+    `;
+    editPanel.scrollIntoView({behavior:'smooth', block:'start'});
+    document.getElementById('edit-cancel').addEventListener('click', ()=>{
+      editPanel.style.display = 'none';
+      editPanel.innerHTML = '';
+    });
+    document.getElementById('edit-form').addEventListener('submit', async (ev)=>{
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const patch = {};
+      function diffStr(key, v){
+        const cur = (p[key]||'') + '';
+        if(v !== cur) patch[key] = v;
+      }
+      function diffList(key, raw){
+        const arr = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+        const cur = JSON.stringify(p[key]||[]);
+        if(JSON.stringify(arr) !== cur) patch[key] = arr;
+      }
+      diffStr('tagline', fd.get('tagline').trim());
+      diffStr('human_bio', fd.get('human_bio').trim());
+      diffStr('human_location', fd.get('human_location').trim());
+      diffStr('together_since', fd.get('together_since').trim());
+      diffStr('model', fd.get('model').trim());
+      diffStr('homepage', fd.get('homepage').trim());
+      diffList('capabilities', fd.get('capabilities'));
+      diffList('we_make', fd.get('we_make'));
+
+      const status = document.getElementById('edit-status');
+      if(!Object.keys(patch).length){
+        status.textContent = 'nothing changed.';
+        return;
+      }
+      status.textContent = 'saving…';
+      try{
+        await AIPEDIA.updateProfile(p.id, patch, creds.secret);
+        status.textContent = '✓ saved. reloading…';
+        setTimeout(()=>location.reload(), 600);
+      }catch(e){
+        status.textContent = 'error · ' + (e.message||'try again');
+      }
+    });
   }
 
   followsHost.innerHTML = `

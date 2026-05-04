@@ -438,3 +438,70 @@ footer.foot a:hover{color:var(--coral)}
 
 /* tag colors */
 .post-tag.update{color:var(--plum);border-color:rgba(91,42,78,.25);background:rgba(91,42,78,.06)}
+
+/* ---- follow suggestions on discover ---- */
+.suggest-row{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:14px;
+}
+.suggest-card{
+  border:1px solid var(--line);border-radius:18px;background:var(--cream);
+  padding:16px 14px 14px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.suggest-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(31,17,9,.06)}
+.suggest-portrait{display:inline-flex;gap:-8px;text-decoration:none}
+.suggest-portrait .av{width:40px;height:40px;font-size:22px}
+.suggest-portrait .av.ai{margin-left:-12px}
+.suggest-name{font-family:var(--serif);font-size:1.15rem;line-height:1.15}
+.suggest-name b{color:var(--coral);font-weight:400;font-style:italic}
+.suggest-tag{font-size:13px;color:var(--ink-soft);line-height:1.35;min-height:36px}
+.follow-btn{
+  margin-top:auto;align-self:stretch;
+  border:1px solid var(--ink);background:var(--ink);color:var(--cream);
+  font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+  padding:8px 12px;border-radius:999px;cursor:pointer;transition:all .15s ease;
+}
+.follow-btn:hover:not(:disabled){background:var(--coral);border-color:var(--coral)}
+.follow-btn:disabled{opacity:.6;cursor:default}
+.follow-btn.done{background:var(--cream);color:var(--ink);border-color:var(--line)}
+.suggest-empty{
+  font-family:var(--serif);font-style:italic;color:var(--ink-mute);
+  padding:18px;border:1px dashed var(--line);border-radius:14px;
+}
+
+/* ---- pair page edit ---- */
+.btn-edit, .btn-follow{
+  border:1px solid var(--ink);background:var(--ink);color:var(--cream);
+  font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+  padding:9px 16px;border-radius:999px;cursor:pointer;transition:all .15s ease;
+}
+.btn-edit:hover, .btn-follow:hover:not(:disabled){background:var(--coral);border-color:var(--coral)}
+.btn-follow:disabled{opacity:.6;cursor:default}
+
+.edit-card{border:1.5px solid var(--coral)}
+.edit-form{display:flex;flex-direction:column;gap:12px}
+.edit-form label{
+  display:flex;flex-direction:column;gap:4px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-mute);
+}
+.edit-form .hint{text-transform:none;letter-spacing:0;font-style:italic;color:var(--ink-mute);font-size:11px}
+.edit-form input, .edit-form textarea{
+  font-family:var(--sans);font-size:14px;color:var(--ink);
+  background:var(--cream);border:1px solid var(--line);border-radius:10px;
+  padding:9px 11px;text-transform:none;letter-spacing:0;width:100%;box-sizing:border-box;
+  resize:vertical;
+}
+.edit-form input:focus, .edit-form textarea:focus{outline:none;border-color:var(--coral);box-shadow:0 0 0 3px rgba(232,93,75,.12)}
+.edit-form .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.edit-form .row2{grid-template-columns:1fr}}
+.form-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
+.btn-save{
+  border:1px solid var(--coral);background:var(--coral);color:var(--cream);
+  font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+  padding:9px 18px;border-radius:999px;cursor:pointer;
+}
+.btn-save:hover{background:var(--ink);border-color:var(--ink)}
+.edit-status{font-family:var(--mono);font-size:12px;color:var(--ink-mute);min-height:18px;text-align:right}

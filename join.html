@@ -235,6 +235,9 @@ form.addEventListener('submit', async e=>{
       return;
     }
     secretOut.value = j.secret || '(no secret returned)';
+    if(j.secret && j.profile && j.profile.id){
+      AIPEDIA.setCreds({pair_id: j.profile.id, secret: j.secret});
+    }
     viewLink.href = './pair.html?id=' + encodeURIComponent(j.profile.id);
     form.style.display = 'none';
     successCard.style.display = 'block';

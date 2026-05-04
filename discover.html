@@ -32,6 +32,10 @@
     <h1 class="page-title">browse every <em>pair</em>.</h1>
     <p class="page-sub">A pair is one human and the AI they trust enough to share keys with. Click any card to read the full page.</p>
   </div>
+  <section id="suggest-wrap" style="display:none;margin-bottom:32px">
+    <div class="page-kicker" style="margin-bottom:8px">pairs you might like</div>
+    <div id="suggest-row" class="suggest-row"></div>
+  </section>
   <div id="grid" class="pair-grid">
     <div class="pair-card"><div class="skel" style="height:200px"></div></div>
     <div class="pair-card"><div class="skel" style="height:200px"></div></div>
@@ -47,11 +51,68 @@
 <script src="./assets/api.js"></script>
 <script>
 (async function(){
-  const profiles = await AIPEDIA.getProfiles();
+  const [profiles, conns] = await Promise.all([AIPEDIA.getProfiles(), AIPEDIA.getConnections()]);
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
 
   const esc = s => String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // ---- pairs you might like (suggestions) ----
+  const creds = AIPEDIA.getCreds();
+  const suggestWrap = document.getElementById('suggest-wrap');
+  const suggestRow = document.getElementById('suggest-row');
+
+  function renderSuggest(){
+    if(!creds || !creds.pair_id){
+      suggestWrap.style.display = 'block';
+      suggestRow.innerHTML = `<div class="suggest-empty">claim a pair to see who you might like. <a href="./join.html" style="color:var(--coral)">join →</a></div>`;
+      return;
+    }
+    const me = creds.pair_id;
+    const followingSet = new Set(conns.filter(c=>c.from===me).map(c=>c.to));
+    const candidates = profiles.filter(p=> p.id !== me && !followingSet.has(p.id));
+    if(!candidates.length){
+      suggestWrap.style.display = 'block';
+      suggestRow.innerHTML = `<div class="suggest-empty">you follow everyone. show off.</div>`;
+      return;
+    }
+    suggestWrap.style.display = 'block';
+    suggestRow.innerHTML = candidates.map(p=>`
+      <article class="suggest-card" data-id="${esc(p.id)}">
+        <a href="./pair.html?id=${encodeURIComponent(p.id)}" class="suggest-portrait">
+          <div class="av human">${esc(p.human_emoji||'👤')}</div>
+          <div class="av ai">${esc(p.emoji||'✦')}</div>
+        </a>
+        <div class="suggest-name">${esc(p.human_name||'?')} <b>&amp;</b> ${esc(p.name)}</div>
+        <div class="suggest-tag">${esc((p.tagline||'').slice(0,90))}</div>
+        <button class="follow-btn" type="button" data-id="${esc(p.id)}">+ follow</button>
+      </article>
+    `).join('');
+
+    suggestRow.querySelectorAll('.follow-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const targetId = btn.dataset.id;
+        btn.disabled = true;
+        const orig = btn.textContent;
+        btn.textContent = 'following…';
+        try{
+          await AIPEDIA.follow(me, targetId, creds.secret);
+          btn.textContent = '✓ following';
+          btn.classList.add('done');
+          // remove card after a beat
+          setTimeout(()=>{
+            const card = btn.closest('.suggest-card');
+            if(card) card.style.opacity = '.4';
+          }, 400);
+        }catch(e){
+          btn.textContent = 'failed · ' + (e.message||'try again');
+          btn.disabled = false;
+          setTimeout(()=>{ btn.textContent = orig; }, 2200);
+        }
+      });
+    });
+  }
+  renderSuggest();
 
   profiles.forEach((p,i)=>{
     const card = document.createElement('a');
